@@ -5,19 +5,32 @@ services:
     build:
       context: web/app
       args:
-        # These env variables used in next.config.js can only be set during build.
-        # But since you can't access the running api at this URL while building,
-        # SSG at build time is not usable in Next.js 
-        - API_URL=http://api:3000
+        # API_URL is now set to the new backend service name and port
+        - API_URL=http://backend:8000
         - MATOMO_URL=${MATOMO_URL:?Matomo URL}
         - MATOMO_SITE_ID=${MATOMO_SITE_ID:?Matomo site ID}
-      network: host
     restart: unless-stopped
     networks:
       - frontend
+    volumes:
+      - ./web/app/public/graphs:/app/public/graphs:ro
     ports:
       - "${WEB_PORT:?Web server port}:3000"
 
-networks:
   backend:
+    build:
+      context: ./backend
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./data/parquets:/app/data/parquets
+      - ./data/precomputed:/app/models:ro
+      - ./web/app/public/graphs:/app/public/graphs
+    networks:
+      - frontend
+
+networks:
   frontend:

@@ -74,7 +74,7 @@ export default function Header() {
             hidden={size.width < 500}
             className="font-medium text-white sm:text-2xl"
           >
-            STK Portál
+            SME Portál
           </h1>
         </Link>
       </div>
@@ -93,20 +93,8 @@ export default function Header() {
         }}
         items={[
           {
-            key: "stations",
-            label: "Stanice",
-          },
-          {
             key: "vehicles",
-            label: "Vozidla",
-          },
-          {
-            key: "compare",
-            label: "Srovnání",
-          },
-          {
-            key: "defects",
-            label: "Číselník závad",
+            label: "Rizikovost vozidla",
           },
           {
             key: "about",
