@@ -10,21 +10,37 @@ interface ChartPlaceholderProps {
 
 export default function ChartPlaceholder({ filename, altText }: ChartPlaceholderProps) {
   const [timestamp, setTimestamp] = useState<number | null>(null);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     setTimestamp(Date.now());
   }, []);
 
+  useEffect(() => {
+    setHasError(false);
+  }, [filename]);
+
   return (
-    <div className="flex items-center justify-center h-full grow min-h-[400px] rounded-lg shadow-sm border border-slate-200 bg-white p-4">
-      {timestamp ? (
+    <div className="flex items-center justify-center h-full grow min-h-[400px] rounded-lg shadow-sm border border-slate-200 bg-white p-4 relative">
+      {!timestamp ? (
+        <Spin size="large" />
+      ) : hasError ? (
+        <div className="flex flex-col items-center justify-center text-gray-500">
+          <p className="mb-2">Graf zatím není k dispozici nebo se jej nepodařilo načíst.</p>
+          <button 
+            className="px-4 py-2 mt-2 bg-primary text-white rounded-md hover:bg-red-600 transition-colors"
+            onClick={() => { setHasError(false); setTimestamp(Date.now()); }}
+          >
+            Zkusit znovu
+          </button>
+        </div>
+      ) : (
         <img 
           src={`/graphs/${filename}?v=${timestamp}`} 
           alt={altText}
           className="w-full max-w-5xl object-contain"
+          onError={() => setHasError(true)}
         />
-      ) : (
-        <Spin size="large" />
       )}
     </div>
   );

@@ -483,7 +483,7 @@ def duration_density_plot(df, start_col, end_col, title, x_label, unit='minutes'
     plt.tight_layout()
     plt.show()
 
-def distribution_density_plot(df, value_col, title, x_label, no_bins=100, anchor_range=None, log_scale=False, save_path=None):
+def distribution_density_plot(df, value_col, title, x_label, no_bins=100, anchor_range=None, log_scale=False, y_max=None, decimals=2, save_path=None):
     """Generuje histogram s hustotou pravděpodobnosti pro numerický sloupec."""
     # Filtrace neplatných hodnot (pro logaritmické měřítko musí být hodnoty kladné)
     if log_scale:
@@ -518,15 +518,20 @@ def distribution_density_plot(df, value_col, title, x_label, no_bins=100, anchor
     ax.set_ylabel("Hustota pravděpodobnosti")
     ax.spines[['top', 'right']].set_visible(False)
     ax.set_xlim(-0.1, 1.1)
+    
+    if y_max is not None:
+        ax.set_ylim(0, y_max)
 
     ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='gray')
     ax.set_axisbelow(True)
+    ax.yaxis.set_major_formatter(mtick.FuncFormatter(lambda val, p: f'{val:.{decimals}f}'))
 
     if save_path:
         fig.savefig(save_path, format="svg", bbox_inches="tight")
 
     plt.tight_layout()
     plt.show()
+    plt.close(fig)
 
 
 def time_series_preaggregated(x, y, title, y_title, save_path=None):
@@ -574,25 +579,10 @@ def time_series_monthly_expr(df, time_col, exprs, title, y_title, save_path=None
         if not isinstance(exprs, list):
             exprs = [exprs]
 
-        min_date = df_work.select(pl.col(time_col).min()).item()
-        max_date = df_work.select(pl.col(time_col).max()).item()
-
-        min_is_full = min_date.day == 1
-        max_is_full = max_date.day == calendar.monthrange(max_date.year, max_date.month)[1]
-
         df_work = df_work.with_columns(pl.col(time_col).dt.truncate("1mo").alias("_ts_month"))
 
-        min_month = df_work.select(pl.col("_ts_month").min()).item()
-        max_month = df_work.select(pl.col("_ts_month").max()).item()
-
-        valid_filter = pl.lit(True)
-        if not min_is_full:
-            valid_filter = valid_filter & (pl.col("_ts_month") > min_month)
-        if not max_is_full:
-            valid_filter = valid_filter & (pl.col("_ts_month") < max_month)
-
         df_agg = (
-            df_work.filter(valid_filter)
+                df_work
             .group_by("_ts_month")
             .agg(exprs)
             .sort("_ts_month")

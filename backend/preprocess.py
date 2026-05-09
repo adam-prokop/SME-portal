@@ -992,19 +992,19 @@ def run_preprocessing():
     clear_folder(config.STATIONS_DIR, config.VERBOSITY)
     download_stations(config.SPARQL_ENDPOINT, config.STATIONS_DIR / 'gz', config.DATASET_STATIONS, config.VERBOSITY)
     extract_files(config.STATIONS_DIR / 'gz', config.STATIONS_DIR / 'xml', 1, config.VERBOSITY)
-    parse_series_to_parquet(config.STATIONS_DIR / 'xml', config.STATIONS_DIR / 'parquet', parse_stations_file, 1, config.VERBOSITY, False)
+    parse_series_to_parquet(config.STATIONS_DIR / 'xml', config.STATIONS_DIR / 'parquet', parse_stations_file, 1, config.VERBOSITY, True)
 
     print('——————————————————————————————————PROHLÍDKY VOZIDEL STK A SME:——————————————————————————————————\n')
     downloaded_inspection_dates = downloaded_dates([config.INSPECTIONS_DIR / 'gz', config.INSPECTIONS_DIR / 'xml', config.INSPECTIONS_DIR / 'parquet'])
     download_files(config.SPARQL_ENDPOINT, config.INSPECTIONS_DIR / 'gz', config.PARENT_DATASET_INSPECTIONS, config.START_DATE, config.END_DATE, downloaded_inspection_dates, config.NO_DOWNLOAD_THREADS, config.MAX_DOWNLOAD_ATTEMPTS, config.VERBOSITY)
     extract_files(config.INSPECTIONS_DIR / 'gz', config.INSPECTIONS_DIR / 'xml', config.NO_EXTRACT_THREADS, config.VERBOSITY)
-    parse_series_to_parquet(config.INSPECTIONS_DIR / 'xml', config.INSPECTIONS_DIR / 'parquet', parse_inspections_file, config.NO_PARSE_PROCESSES, config.VERBOSITY, False)
+    parse_series_to_parquet(config.INSPECTIONS_DIR / 'xml', config.INSPECTIONS_DIR / 'parquet', parse_inspections_file, config.NO_PARSE_PROCESSES, config.VERBOSITY, True)
 
     print('\n————————————————————————————————DATA Z MĚŘÍCÍCH PŘÍSTROJŮ:————————————————————————————————————\n')
     downloaded_measurement_dates = downloaded_dates([config.MEASUREMENTS_DIR / 'gz', config.MEASUREMENTS_DIR / 'xml', config.MEASUREMENTS_DIR / 'parquet'])
     download_files(config.SPARQL_ENDPOINT, config.MEASUREMENTS_DIR / 'gz', config.PARENT_DATASET_MEASUREMENTS, config.START_DATE, config.END_DATE, downloaded_measurement_dates, config.NO_DOWNLOAD_THREADS, config.MAX_DOWNLOAD_ATTEMPTS, config.VERBOSITY)
     extract_files(config.MEASUREMENTS_DIR / 'gz', config.MEASUREMENTS_DIR / 'xml', config.NO_EXTRACT_THREADS, config.VERBOSITY)
-    parse_series_to_parquet(config.MEASUREMENTS_DIR / 'xml', config.MEASUREMENTS_DIR / 'parquet', parse_measurements_file, config.NO_PARSE_PROCESSES, config.VERBOSITY, False)
+    parse_series_to_parquet(config.MEASUREMENTS_DIR / 'xml', config.MEASUREMENTS_DIR / 'parquet', parse_measurements_file, config.NO_PARSE_PROCESSES, config.VERBOSITY, True)
     
 
 

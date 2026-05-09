@@ -4,8 +4,10 @@ import matplotlib
 # Nutné pro běh matplotlibu bez vizuálního grafického rozhraní (headless v Dockeru)
 matplotlib.use('Agg')
 from pathlib import Path
+import numpy as np
+import json
 
-from visualisation_utils import time_series_monthly_expr
+from visualisation_utils import time_series_monthly_expr, distribution_density_plot
 
 
 def generate_all_graphs():
@@ -26,6 +28,17 @@ def generate_all_graphs():
         'StaniceCislo', 'Zahajeni', 'Ukonceni'
     ]).collect()
     
+    if df_selected.schema["DatumProhlidky"] in [pl.String, pl.Utf8]:
+        df_selected = df_selected.with_columns(pl.col("DatumProhlidky").str.to_datetime(strict=False))
+
+    max_date = df_selected.select(pl.col("DatumProhlidky").max()).item()
+    global_max_year = max_date.year
+    global_max_month = max_date.month
+
+    df_selected = df_selected.filter(
+        ~((pl.col("DatumProhlidky").dt.year() == global_max_year) & (pl.col("DatumProhlidky").dt.month() == global_max_month))
+    )
+
     # --- 1. Vývoj průchodnosti podle stanice ---
     df_stations = df_selected.group_by("StaniceCislo").agg(
         celkem=pl.len(),
@@ -132,6 +145,10 @@ def generate_all_graphs():
     if df_valid.schema["DatumProhlidky"] in [pl.String, pl.Utf8]:
         df_valid = df_valid.with_columns(pl.col("DatumProhlidky").str.to_datetime(strict=False))
 
+    df_valid = df_valid.filter(
+        ~((pl.col("DatumProhlidky").dt.year() == global_max_year) & (pl.col("DatumProhlidky").dt.month() == global_max_month))
+    )
+
     all_mappings = [
         ("Benzin_OtackyVolnobezne_CO_Hodnota", None, "Benzin_OtackyVolnobezne_CO_Max_Hodnota"),
         ("Benzin_OtackyVolnobezne_N_Hodnota", "Benzin_OtackyVolnobezne_N_Min_Hodnota", "Benzin_OtackyVolnobezne_N_Max_Hodnota"),
@@ -195,5 +212,65 @@ def generate_all_graphs():
         title="Podíl úspěšných měření s povinnými hodnotami mimo povolený rozsah", y_title="Podíl z úspěšných měření", decimals=2,
         save_path=str(graphs_dir / 'mereni_anomalie_celkove.svg')
     )
+
+    print("Generuji grafy rozložení normovaných hodnot pro jednotlivé měsíce...", flush=True)
+    df_valid = df_valid.with_columns(
+        pl.col("DatumProhlidky").dt.year().alias("year"),
+        pl.col("DatumProhlidky").dt.month().alias("month")
+    )
+    
+    max_date = df_valid.select(pl.col("DatumProhlidky").max()).item()
+
+    months = df_valid.select(["year", "month"]).unique().sort(["year", "month"]).to_dicts()
+    
+    months_list = [f"{m['year']}-{m['month']:02d}" for m in months]
+    with open(graphs_dir / "available_months.json", "w") as f:
+        json.dump(months_list, f)
+        
+    print("Zjišťuji maximální hodnoty osy Y pro konzistentní měřítko grafů...", flush=True)
+    max_y_per_metric = {}
+    for val_col, _, _ in all_mappings:
+        max_y_per_metric[f"{val_col}_Norm"] = 0.0
+        
+    for m in months:
+        y, mo = m['year'], m['month']
+        df_month = df_valid.filter((pl.col("year") == y) & (pl.col("month") == mo))
+        for val_col, _, _ in all_mappings:
+            col_norm = f"{val_col}_Norm"
+            if col_norm in df_month.columns:
+                df_plot = df_month.filter(pl.col(col_norm).is_between(-0.1, 1.1))
+                if df_plot.height > 0:
+                    vals = df_plot[col_norm].drop_nulls().to_numpy()
+                    if len(vals) > 0:
+                        a_start, a_end = 0, 1.00001
+                        bin_w = (a_end - a_start) / 100
+                        low_bound = a_start - np.ceil((a_start - vals.min()) / bin_w) * bin_w
+                        high_bound = a_start + np.ceil((vals.max() - a_start) / bin_w) * bin_w
+                        bins = np.arange(low_bound, high_bound + bin_w, bin_w)
+                        counts, _ = np.histogram(vals, bins=bins, density=True)
+                        if len(counts) > 0 and counts.max() > max_y_per_metric[col_norm]:
+                            max_y_per_metric[col_norm] = counts.max()
+
+    for m in months:
+        y, mo = m['year'], m['month']
+        df_month = df_valid.filter((pl.col("year") == y) & (pl.col("month") == mo))
+        for val_col, min_col, max_col in all_mappings:
+            col_norm = f"{val_col}_Norm"
+            if col_norm in df_month.columns:
+                df_plot = df_month.filter(pl.col(col_norm).is_between(-0.1, 1.1))
+                if df_plot.height > 0:
+                    clean_name = (
+                        col_norm.replace('Benzin_OtackyVolnobezne_N_Hodnota_Norm', 'Benzín - otáčky volnoběžné')
+                               .replace('Benzin_OtackyZvysene_N_Hodnota_Norm' , 'Benzín - otáčky zvýšené')
+                               .replace('Nafta_MereniPrumer_OtackyVolnobezne_Hodnota_Norm', 'Nafta - otáčky volnoběžné')
+                               .replace('Nafta_MereniPrumer_OtackyPrebehove_Hodnota_Norm', 'Nafta - otáčky přeběhové')
+                               .replace('_Norm', '')
+                    )
+                    title = f"Rozložení: {clean_name} ({mo:02d}/{y})"
+                    
+                    y_max = max_y_per_metric.get(col_norm, 0)
+                    y_max = y_max * 1.05 if y_max > 0 else None
+                    
+                    distribution_density_plot(df_plot, col_norm, title, 'Normovaná hodnota', 100, (0, 1.00001), y_max=y_max, decimals=2, save_path=str(graphs_dir / f"rozdeleni_{col_norm}_{y}_{mo:02d}.svg"))
 
     print("Grafy byly úspěšně vygenerovány a uloženy.")
