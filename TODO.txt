@@ -1,2 +1,5 @@
-smazat prebytecne z .env a .env.example
-z dockeru odstranit backend network
+readme
+prepsat vsechny STK na semver
+zajistit, aby se obrazky na strance nechachovaly
+jak udelat ten volume nejlip
+pridat depends on

@@ -3,7 +3,6 @@ services:
     build:
       context: web/app
       args:
-        # API_URL is now set to the new backend service name and port
         - API_URL=http://backend:8000
     restart: unless-stopped
     networks:
@@ -18,8 +17,6 @@ services:
       context: ./backend
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     restart: unless-stopped
-    ports:
-      - "8000:8000"
     volumes:
       - ./backend:/app
       - ./data/parquets:/app/data/parquets
