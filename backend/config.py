@@ -2,7 +2,7 @@ from pathlib import Path
 from utils import Verbosity
 
 # Kořenové adresáře
-DATA_DIR = Path('kod/data')
+DATA_DIR = Path('/app/data')
 EXTRACTED_DIR = DATA_DIR / 'extracted'
 
 # Prohlídky vozidel STK a SME

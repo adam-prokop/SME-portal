@@ -2,6 +2,7 @@ import asyncio
 import os
 from fastapi import FastAPI
 from pydantic import BaseModel
+from preprocess import run_preprocessing
 # import pandas as pd
 # from catboost import CatBoostClassifier
 
@@ -12,7 +13,7 @@ app = FastAPI()
 # ---------------------------------------------------------
 # Zde si načteš svůj model. Běží to jen jednou při startu kontejneru.
 # model = CatBoostClassifier()
-# model.load_model("/app/models/tvuj_model.cbm")
+# model.load_model("/app/data/precomputed/tvuj_model.cbm")
 
 class VinRequest(BaseModel):
     vin: str
@@ -35,7 +36,8 @@ async def predict_risk(request: VinRequest):
 async def update_data_and_generate_graphs():
     while True:
         print("Stahuji data z data.gov.cz do /app/data/parquets...")
-        # sem vlozis svuj kod pro stazeni dat a ulozeni do .parquet
+        # Run heavy CPU/IO processing in a threadpool so it doesn't block the API
+        await asyncio.to_thread(run_preprocessing)
         
         print("Generuji grafy z .parquet souborů...")
         # df = pd.read_parquet("/app/data/parquets/...")

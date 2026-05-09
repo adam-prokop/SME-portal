@@ -3,15 +3,14 @@ import gzip
 import shutil
 from functools import partial
 
-import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
-from lxml import etree # type: ignore <- pylance milně hlásí chybu
+import polars as pl
+from lxml import etree
 import requests
 
 from utils import *
 from schemas import *
 import config
+import clean
 
 
 # Nalezení datumů, které už byly zpracovány
@@ -818,15 +817,18 @@ def parse_to_parquet(source_dir, file_parser, no_threads, verbosity, delete):
         delete_path(source_dir, verbosity)
 
 
-def write_batch(output_dir, batch_data, file_stem):
+def write_batch(output_dir, batch_data, file_stem, cast_func=None):
     if not batch_data: return
     
     file_name = f"{file_stem}.parquet"
     
-    # Zapsání souboru na disk v požadovaném formátu
-    df = pd.DataFrame(batch_data)
-    table = pa.Table.from_pandas(df, preserve_index=False)
-    pq.write_table(table, output_dir / file_name)
+    # Převedení slovníků na Polars DataFrame
+    df = pl.DataFrame(batch_data, infer_schema_length=10000)
+    
+    if cast_func:
+        df = cast_func(df)
+        
+    df.write_parquet(output_dir / file_name)
 
 
 def parse_series_to_parquet(source_dir, target_dir, file_parser, no_threads, verbosity, delete=True):
@@ -872,7 +874,7 @@ def parse_inspections_file(target_dir, xml_file, verbosity, delete):
                 prohlidky_batch.append(prohlidka_record)
         
         # Zapsání souboru na disk
-        write_batch(target_dir, prohlidky_batch, xml_file.stem)
+        write_batch(target_dir, prohlidky_batch, xml_file.stem, cast_func=clean.cast_prohlidka)
 
         if verbosity > Verbosity.NORMAL:
             print(f'Zapisuji vyparsovaný parquet soubor ze: "{xml_file.stem}".')
@@ -915,7 +917,7 @@ def parse_measurements_file(target_dir, xml_file, verbosity, delete):
         del tree
         
         # Zapsání souborů na disk
-        write_batch(target_dir, mereni_batch, xml_file.stem)
+        write_batch(target_dir, mereni_batch, xml_file.stem, cast_func=clean.cast_mereni)
         if verbosity > Verbosity.NORMAL:
             print(f'Zapisuji vyparsované parquet soubory ze: "{xml_file.stem}".')
         elif verbosity > Verbosity.QUIET:
@@ -964,7 +966,7 @@ def parse_stations_file(target_dir, xml_file, verbosity, delete):
         del tree
 
         # Zapsání souboru na disk
-        write_batch(target_dir, stanice_batch, xml_file.stem)
+        write_batch(target_dir, stanice_batch, xml_file.stem, cast_func=clean.cast_stanice)
 
         if verbosity > Verbosity.NORMAL:
             print(f'Zapisuji stanice z: "{xml_file.stem}".')

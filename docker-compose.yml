@@ -19,8 +19,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend:/app
-      - ./data/parquets:/app/data/parquets
-      - ./data/precomputed:/app/models:ro
+      - ./data:/app/data
       - ./web/app/public/graphs:/app/public/graphs
     networks:
       - frontend

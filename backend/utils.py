@@ -5,7 +5,7 @@ from pathlib import Path
 
 import polars as pl
 import pandas as pd
-from IPython.display import display
+# from IPython.display import display
 
 
 class Verbosity(IntEnum):
@@ -124,7 +124,7 @@ def get_short(df):
 def short_display(df, len=50):
     df_short = get_short(df).head(len)
     print(df.shape)
-    display(df_short.to_pandas())
+    print(df_short.to_pandas())
 
 
 # Zobrazí sloupce s datovými typy, ukazkou majoritni tridy, vyplněností a počtem výskytů majoritní třídy
@@ -169,11 +169,11 @@ def schema_description(df: pl.DataFrame):
             'dtype': str(df.dtypes[i]),
         })
 
-    display(pd.DataFrame(rows))
+    print(pd.DataFrame(rows))
 
 # Zobrazí základní infromace o datasetu
 def describe(df, short=False):
-    display(df.head(1))
+    print(df.head(1))
     short_display(df)
     if not short:
         schema_description(df)
