@@ -3,3 +3,4 @@ prepsat vsechny STK na semver
 zajistit, aby se obrazky na strance nechachovaly
 jak udelat ten volume nejlip
 pridat depends on
+rict, ze grafy jsou pro vyhovujici vozidla

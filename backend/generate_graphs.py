@@ -1,0 +1,199 @@
+import polars as pl
+import polars.selectors as cs
+import matplotlib
+# Nutné pro běh matplotlibu bez vizuálního grafického rozhraní (headless v Dockeru)
+matplotlib.use('Agg')
+from pathlib import Path
+
+from visualisation_utils import time_series_monthly_expr
+
+
+def generate_all_graphs():
+    print("Zahajuji generování grafů do /app/public/graphs...")
+    graphs_dir = Path("/app/public/graphs")
+    graphs_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Cesty v dockeru
+    prohlidky_path = "/app/data/extracted/prohlidky_vozidel_stk_a_sme/parquet/*.parquet"
+    mereni_path = "/app/data/extracted/data_z_mericich_pristroju/parquet/*.parquet"
+    
+    lf_prohlidky = pl.scan_parquet(prohlidky_path)
+    lf_mereni = pl.scan_parquet(mereni_path)
+    
+    # Stažení menší podmnožiny dat potřebné pro základní grafy
+    df_selected = lf_mereni.select([
+        'CisloProtokolu', 'DatumProhlidky', 'Vysledek_Vyhovuje', 
+        'StaniceCislo', 'Zahajeni', 'Ukonceni'
+    ]).collect()
+    
+    # --- 1. Vývoj průchodnosti podle stanice ---
+    df_stations = df_selected.group_by("StaniceCislo").agg(
+        celkem=pl.len(),
+        nevyhovuje=pl.col("Vysledek_Vyhovuje").is_null().sum()
+    ).with_columns(
+        neuspesnost=pl.col("nevyhovuje") / pl.col("celkem")
+    )
+    
+    limit_10 = df_selected.height * 0.10
+    limit_50 = df_selected.height * 0.50
+
+    def get_stations(limit, desc_neuspesnost):
+        return (
+            df_stations.sort(["neuspesnost", "celkem"], descending=[desc_neuspesnost, True])
+            .with_columns(cum_celkem=pl.col("celkem").cum_sum())
+            .filter(pl.col("cum_celkem") <= limit)
+            .get_column("StaniceCislo")
+            .to_list()
+        )
+
+    worst_10_stations = get_stations(limit_10, desc_neuspesnost=True)
+    best_10_stations = get_stations(limit_10, desc_neuspesnost=False)
+    worst_50_stations = get_stations(limit_50, desc_neuspesnost=True)
+    best_50_stations = get_stations(limit_50, desc_neuspesnost=False)
+
+    def create_expr(stations_list, alias_name):
+        return (
+            pl.col("Vysledek_Vyhovuje").filter(pl.col("StaniceCislo").is_in(stations_list)).is_null().sum() /
+            pl.col("StaniceCislo").filter(pl.col("StaniceCislo").is_in(stations_list)).len()
+        ).alias(alias_name)
+
+    exprs = [
+        create_expr(worst_10_stations, "10 % nejpřísnějších stanic (dle objemu)"),
+        create_expr(worst_50_stations, "50 % nejpřísnějších stanic (dle objemu)"),
+        create_expr(best_50_stations, "50 % nejmírnějších stanic (dle objemu)"),
+        create_expr(best_10_stations, "10 % nejmírnějších stanic (dle objemu)"),
+    ]
+
+    time_series_monthly_expr(
+        df_selected, 'DatumProhlidky', exprs, 
+        'Vývoj podílu vozidel, která měření absolvují neúspěšně, podle přísnosti stanice', 
+        'Podíl z měsíčních prohlídek',
+        save_path=str(graphs_dir / 'vyvoj_pruchodnosti_podle_stanice.svg'), 
+        decimals=2
+    )
+    
+    # --- 2. Délka měření ---
+    df_duration = df_selected.filter(
+        pl.col("Zahajeni").is_not_null() & 
+        pl.col("Ukonceni").is_not_null() &
+        pl.col("Vysledek_Vyhovuje").is_not_null()
+    ).with_columns(
+        pl.col("Zahajeni").dt.truncate("1mo").alias("_ts_month"),
+        ((pl.col("Ukonceni") - pl.col("Zahajeni")).dt.total_seconds() / 60.0).alias("delka_mereni_min")
+    ).filter(
+        (pl.col("delka_mereni_min") > 0) & 
+        (pl.col("delka_mereni_min") < 180)
+    )
+
+    df_quantiles_duration = df_duration.group_by("_ts_month").agg([
+        pl.col("delka_mereni_min").median().alias("50. percentil (Medián)"),
+        pl.col("delka_mereni_min").quantile(0.10).alias("10. percentil (10 % nejkratších)"),
+        pl.col("delka_mereni_min").quantile(0.01).alias("1. percentil (1 % nejkratších)"),
+        pl.col("delka_mereni_min").quantile(0.001).alias("0,1. percentil (0,1 % nejkratších)"),
+    ])
+
+    time_series_monthly_expr(
+        df=df_quantiles_duration, time_col="_ts_month", exprs=None,                
+        title="Rozložení délky měření emisí v čase (kvantily)", y_title="Délka měření (minuty)", decimals=0,
+        save_path=str(graphs_dir / 'delka_prohlidky.svg')
+    )
+    
+    del df_selected
+
+    # --- 3. Filtrování a normalizace (Anomálie, Otáčky atd.) ---
+    uzsi_prohlidky = set(lf_prohlidky.select([
+        'CisloProtokolu', 'Vozidlo_Kategorie', 'Emise_ZakladniPalivo', 'Emise_AlternativniPalivo'
+    ]).filter(
+        pl.col('Vozidlo_Kategorie') == 'M1', 
+        pl.col('Emise_ZakladniPalivo').is_in(['Benzín', 'Nafta']), 
+        pl.col('Emise_AlternativniPalivo').is_null()
+    ).select('CisloProtokolu').collect()['CisloProtokolu'].to_list())
+
+    required_benzin = ["Benzin_OtackyVolnobezne_CO_Hodnota", "Benzin_OtackyVolnobezne_CO_Max_Hodnota", "Benzin_OtackyVolnobezne_N_Hodnota", "Benzin_OtackyVolnobezne_N_Min_Hodnota", "Benzin_OtackyVolnobezne_N_Max_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Min_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Max_Hodnota", "Benzin_OtackyZvysene_CO_Hodnota", "Benzin_OtackyZvysene_CO_Max_Hodnota", "Benzin_OtackyZvysene_N_Hodnota", "Benzin_OtackyZvysene_N_Min_Hodnota", "Benzin_OtackyZvysene_N_Max_Hodnota"]
+    required_nafta = ["Nafta_MereniPrumer_CasAkcelerace_Hodnota", "Nafta_MereniPrumer_Kourivost_Hodnota", "Nafta_MereniPrumer_OtackyVolnobezne_Hodnota", "Nafta_MereniPrumer_OtackyPrebehove_Hodnota", "Nafta_MereniVznetLimit_CasAkcelerace_Max_Hodnota", "Nafta_MereniVznetLimit_Kourivost_Max_Hodnota", "Nafta_MereniVznetLimit_OtackyVolnobezne_Max_Hodnota", "Nafta_MereniVznetLimit_OtackyPrebehove_Max_Hodnota", "Nafta_MereniVznetLimit_OtackyVolnobezne_Min_Hodnota", "Nafta_MereniVznetLimit_OtackyPrebehove_Min_Hodnota"]
+    benzin_mask = pl.all_horizontal(pl.col(required_benzin).is_not_null())
+    nafta_mask = pl.all_horizontal(pl.col(required_nafta).is_not_null())
+
+    limits_bounds_benzin = [('Benzin_OtackyVolnobezne_CO_Max_Hodnota', 0.05, 5.0), ('Benzin_OtackyVolnobezne_N_Min_Hodnota', 300, 3000), ('Benzin_OtackyVolnobezne_N_Max_Hodnota', 300, 3000), ('Benzin_OtackyZvysene_CO_Max_Hodnota', 0.01, 1.0), ('Benzin_OtackyZvysene_LAMBDA_Min_Hodnota', 0.9, 1.00), ('Benzin_OtackyZvysene_LAMBDA_Max_Hodnota', 1.00, 1.1), ('Benzin_OtackyZvysene_N_Min_Hodnota', 1000, 10000), ('Benzin_OtackyZvysene_N_Max_Hodnota', 1000, 10000)]
+    limits_bounds_nafta = [('Nafta_MereniVznetLimit_CasAkcelerace_Max_Hodnota', 0.1, 10.0), ('Nafta_MereniVznetLimit_Kourivost_Max_Hodnota', 0.01, 3.0), ('Nafta_MereniVznetLimit_OtackyVolnobezne_Min_Hodnota', 300, 3000), ('Nafta_MereniVznetLimit_OtackyVolnobezne_Max_Hodnota', 300, 3000), ('Nafta_MereniVznetLimit_OtackyPrebehove_Min_Hodnota', 1000, 10000), ('Nafta_MereniVznetLimit_OtackyPrebehove_Max_Hodnota', 1000, 10000)]
+    check_limits_integrity = [("Benzin_OtackyVolnobezne_N_Min_Hodnota", "Benzin_OtackyVolnobezne_N_Max_Hodnota"), ("Benzin_OtackyZvysene_LAMBDA_Min_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Max_Hodnota"), ("Benzin_OtackyZvysene_N_Min_Hodnota", "Benzin_OtackyZvysene_N_Max_Hodnota"), ("Nafta_MereniVznetLimit_OtackyVolnobezne_Min_Hodnota", "Nafta_MereniVznetLimit_OtackyVolnobezne_Max_Hodnota"), ("Nafta_MereniVznetLimit_OtackyPrebehove_Min_Hodnota", "Nafta_MereniVznetLimit_OtackyPrebehove_Max_Hodnota")]
+
+    df_valid = lf_mereni.select(['CisloProtokolu', 'EmisniSystem', 'Vysledek_Vyhovuje', 'DatumProhlidky'] + required_benzin + required_nafta).filter(
+        pl.col('EmisniSystem').cast(pl.String).str.contains('Rizeny'),
+        pl.col('CisloProtokolu').is_in(uzsi_prohlidky), 
+        pl.any_horizontal(~(cs.numeric() < 0)),
+        pl.col("Vysledek_Vyhovuje").is_not_null(),
+        benzin_mask | nafta_mask,
+        *[(pl.col(col).is_between(low, high) | nafta_mask) for col, low, high in limits_bounds_benzin],
+        *[(pl.col(col).is_between(low, high) | benzin_mask) for col, low, high in limits_bounds_nafta],
+        *[(pl.col(min_col) < pl.col(max_col)).fill_null(True) for min_col, max_col in check_limits_integrity],
+    ).collect()
+    
+    if df_valid.schema["DatumProhlidky"] in [pl.String, pl.Utf8]:
+        df_valid = df_valid.with_columns(pl.col("DatumProhlidky").str.to_datetime(strict=False))
+
+    all_mappings = [
+        ("Benzin_OtackyVolnobezne_CO_Hodnota", None, "Benzin_OtackyVolnobezne_CO_Max_Hodnota"),
+        ("Benzin_OtackyVolnobezne_N_Hodnota", "Benzin_OtackyVolnobezne_N_Min_Hodnota", "Benzin_OtackyVolnobezne_N_Max_Hodnota"),
+        ("Benzin_OtackyZvysene_LAMBDA_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Min_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Max_Hodnota"),
+        ("Benzin_OtackyZvysene_CO_Hodnota", None, "Benzin_OtackyZvysene_CO_Max_Hodnota"),
+        ("Benzin_OtackyZvysene_N_Hodnota", "Benzin_OtackyZvysene_N_Min_Hodnota", "Benzin_OtackyZvysene_N_Max_Hodnota"),
+        ("Nafta_MereniPrumer_CasAkcelerace_Hodnota", None, "Nafta_MereniVznetLimit_CasAkcelerace_Max_Hodnota"),
+        ("Nafta_MereniPrumer_Kourivost_Hodnota", None, "Nafta_MereniVznetLimit_Kourivost_Max_Hodnota"),
+        ("Nafta_MereniPrumer_OtackyVolnobezne_Hodnota", "Nafta_MereniVznetLimit_OtackyVolnobezne_Min_Hodnota", "Nafta_MereniVznetLimit_OtackyVolnobezne_Max_Hodnota"),
+        ("Nafta_MereniPrumer_OtackyPrebehove_Hodnota", "Nafta_MereniVznetLimit_OtackyPrebehove_Min_Hodnota", "Nafta_MereniVznetLimit_OtackyPrebehove_Max_Hodnota")
+    ]
+
+    norm_exprs = [
+        ((pl.col(val_col) - (pl.col(min_col) if min_col else pl.lit(0))) / 
+         (pl.col(max_col) - (pl.col(min_col) if min_col else pl.lit(0)))
+        ).alias(f"{val_col}_Norm")
+        for val_col, min_col, max_col in all_mappings
+    ]
+
+    df_valid = df_valid.with_columns(norm_exprs).drop(required_benzin + required_nafta)
+    df_benzin = df_valid.select(['DatumProhlidky'] + [f"{m[0]}_Norm" for m in all_mappings if m[0].startswith('Benzin')]).drop_nulls()
+    df_nafta = df_valid.select(['DatumProhlidky'] + [f"{m[0]}_Norm" for m in all_mappings if m[0].startswith('Nafta')]).drop_nulls()
+    df_base = pl.concat([df_benzin, df_nafta], how="diagonal")
+
+    epsilon = 0.01
+    def get_suspect_expr(col):
+        clean_name = (
+            col.replace('Benzin_OtackyVolnobezne_N_Hodnota_Norm', 'Benzín - otáčky volnoběžné')
+               .replace('Benzin_OtackyZvysene_N_Hodnota_Norm' , 'Benzín - otáčky zvýšené')
+               .replace('Nafta_MereniPrumer_OtackyVolnobezne_Hodnota_Norm', 'Nafta - otáčky volnoběžné')
+               .replace('Nafta_MereniPrumer_OtackyPrebehove_Hodnota_Norm', 'Nafta - otáčky přeběhové')
+        )
+        is_suspect = pl.col(col).is_between(-epsilon, epsilon) | pl.col(col).is_between(1 - epsilon, 1 + epsilon)
+        return (is_suspect.fill_null(False).sum() / pl.col(col).is_not_null().sum()).alias(clean_name)
+
+    cols_otacky = ['Benzin_OtackyVolnobezne_N_Hodnota_Norm', 'Benzin_OtackyZvysene_N_Hodnota_Norm', 'Nafta_MereniPrumer_OtackyVolnobezne_Hodnota_Norm', 'Nafta_MereniPrumer_OtackyPrebehove_Hodnota_Norm']
+    cols_otacky_exist = [c for c in cols_otacky if c in df_valid.columns]
+    exprs_otacky = [get_suspect_expr(c) for c in cols_otacky_exist]
+
+    time_series_monthly_expr(
+        df=df_valid, time_col="DatumProhlidky", exprs=exprs_otacky,
+        title="Podíl měření otáček na hranici povoleného intervalu", y_title="Podíl z úspěšných měření daného typu", decimals=2,
+        save_path=str(graphs_dir / 'mereni_krajni_hodnoty_otacky.svg')
+    )
+
+    col_akcelerace = 'Nafta_MereniPrumer_CasAkcelerace_Hodnota_Norm'
+    if col_akcelerace in df_base.columns:
+        exprs_akcelerace = [get_suspect_expr(col_akcelerace)]
+        time_series_monthly_expr(
+            df=df_base, time_col="DatumProhlidky", exprs=exprs_akcelerace,
+            title="Podíl času akcelerace na hranici intervalu", y_title="Podíl z úspěšných měření", decimals=1,
+            save_path=str(graphs_dir / 'mereni_krajni_hodnoty_akcelerace.svg')
+        )
+
+    norm_cols = [c for c in df_base.columns if c.endswith('_Norm')]
+    out_of_bounds_exprs = [(pl.col(c) < 0) | (pl.col(c) > 1) for c in norm_cols]
+    expr_anomalies = (pl.any_horizontal(out_of_bounds_exprs).fill_null(False).sum() / pl.len()).alias("CELKOVÉ Anomálie (mimo rozsah 0-1)")
+
+    time_series_monthly_expr(
+        df=df_base, time_col="DatumProhlidky", exprs=[expr_anomalies],
+        title="Podíl úspěšných měření s povinnými hodnotami mimo povolený rozsah", y_title="Podíl z úspěšných měření", decimals=2,
+        save_path=str(graphs_dir / 'mereni_anomalie_celkove.svg')
+    )
+
+    print("Grafy byly úspěšně vygenerovány a uloženy.")

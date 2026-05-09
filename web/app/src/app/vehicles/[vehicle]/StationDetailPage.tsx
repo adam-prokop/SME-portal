@@ -12,7 +12,6 @@ import BreadcrumbsContainer from "@/components/BreadcrumbsContainer";
 import Container from "@/components/Container";
 import InspectionsTable from "./InspectionsTable";
 import DefectPredictionTable from "./DefectPredictionTable";
-import MileageChart from "./MileageChart";
 import Breadcrumb from "antd/es/breadcrumb";
 import Spin from "antd/es/spin";
 import Card from "antd/es/card";
@@ -79,7 +78,6 @@ export default function StationDetailPage({
           <h2 className="pt-4 text-2xl">Predikce nájezdu</h2>
           <hr className="pb-4"></hr>
 
-          <MileageChart vehicle={vehicle}></MileageChart>
         </Container>
       </>
     );

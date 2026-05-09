@@ -21,8 +21,8 @@ import matplotlib.patches as mpatches
 import matplotlib.patheffects as path_effects
 import matplotlib.ticker as mtick
 import matplotlib.patheffects as path_effects
-from ydata_profiling import ProfileReport
-import geopandas as gpd
+# from ydata_profiling import ProfileReport
+# import geopandas as gpd
 import calendar
 
 
@@ -216,50 +216,6 @@ def plot_stacked_ratios(df, cols, title, save_path = None):
         plt.savefig(save_path, format="svg", bbox_inches='tight', facecolor='white')
     plt.show()
 
-
-def plot_czech_regional_map(counts_pl, value_column, title, legend_label, output_path):
-    """Vykreslí kartogram krajů ČR s korektním pořadím vrstev (Praha navrchu) a popisky."""
-    # Načtení GeoJSON
-    KRAJE_URL = "https://raw.githubusercontent.com/siwekm/czech-geojson/refs/heads/master/kraje.json"
-    kraje_geo = gpd.read_file(KRAJE_URL)
-
-    # Join dat
-    map_data = kraje_geo.merge(counts_pl.to_pandas(), left_on="id", right_on="kod_kraje", how="left").fillna(0)
-
-    # Seřazení zajistí, že Praha (uprostřed Středočeského kraje) se vykreslí jako poslední/navrchu
-    map_data["z_order"] = map_data["id"].apply(lambda x: 1 if x == "CZ0100000000" else 0)
-    map_data = map_data.sort_values("z_order") # Přeskupení řádků v GeoDataFrame
-
-    _, ax = plt.subplots(figsize=(15, 10)) # Inicializace figur a osy
-    
-    # Vykreslení ploch: zorder=1 zajistí základní vrstvu pro polygony
-    map_data.plot(column=value_column, cmap="Reds", edgecolor="black", vmin=0, linewidth=0.7, ax=ax, 
-                  legend=True, legend_kwds={'label': legend_label, 'orientation': "vertical", 'shrink': 0.7})
-
-    # Iterace pro anotace: popisky se vykreslují na vypočtené středy (centroidy)
-    for _, row in map_data.iterrows():
-        centroid = row.geometry.centroid # Geometrický střed kraje
-        xy_text_offset = (0, 0) # Defaultní pozice bez posunu
-        
-        # Korekce pozic popisků: Středočeský kraj (offset od Prahy) a Olomoucký kraj
-        if row['id'] == "CZ0200000000": xy_text_offset = (40, -10) # Posun textu Středočeského kraje doprava
-        elif row['id'] == "CZ0710000000": xy_text_offset = (0, -20) # Posun textu Olomouckého kraje dolů
-
-        # Bílý obrys (halo efekt) pro čitelnost textu přes hranice a tmavé barvy
-        text_outline = [path_effects.withStroke(linewidth=2, foreground='white')]
-
-        # Formatovani textu
-        formatted_text = f"{int(row[value_column]):,}".replace(",", " ")
-
-        # Vložení textu: int() odstraňuje desetinná místa, path_effects aplikuje obrys
-        ax.annotate(text=formatted_text, xy=(centroid.x, centroid.y), xytext=xy_text_offset,
-                    textcoords="offset points", ha='center', va='center', fontsize=10, fontweight='bold',
-                    color='black', path_effects=text_outline)
-        # Vložení textu: int() odstraňuje desetinná místa, path_effects aplikuje obrys
-
-    ax.set_axis_off() # Odstranění souřadnicového rámce
-    ax.set_title(title) # Titulek grafu
-    plt.savefig(output_path, format="svg", bbox_inches='tight') # Export do SVG s oříznutím okrajů
 
 
 def time_series_all(values, title, y_title, granularity, save_path = None, relative=False):
@@ -675,7 +631,7 @@ def time_series_monthly_expr(df, time_col, exprs, title, y_title, save_path=None
     ax.yaxis.set_major_formatter(mtick.FuncFormatter(lambda val, p: f'{val:.{decimals}f}'))
 
     if len(y_cols) > 1:
-        ax.legend(frameon=False, loc='lower center', bbox_to_anchor=(0.5, -0.25), ncol=min(len(y_cols), 5))
+        ax.legend(frameon=False, loc='lower center', bbox_to_anchor=(0.5, -0.30), ncol=min(len(y_cols), 5))
 
     if save_path:
         fig.savefig(save_path, format="svg", bbox_inches="tight")

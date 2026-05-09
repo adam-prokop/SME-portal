@@ -2,6 +2,7 @@ import Container from "@/components/Container";
 import BreadcrumbsContainer from "@/components/BreadcrumbsContainer";
 import Link from "next/link";
 import Breadcrumb from "antd/es/breadcrumb";
+import ChartPlaceholder from "@/components/ChartPlaceholder";
 
 export default async function AboutPage() {
   return (
@@ -150,6 +151,49 @@ export default async function AboutPage() {
           <Link href="/vehicles">vozidlech</Link> najdete konkrétní vůz, ke
           každé závadě v jeho historii uvidíte i její název a závažnost.
         </p>
+
+        <h2 className="self-start pt-8 pb-4 text-3xl">Statistiky a vizualizace</h2>
+        <div className="space-y-12">
+          <section className="space-y-4">
+            <h3 className="text-xl font-semibold text-slate-700">Vývoj průchodnosti podle stanice</h3>
+            <ChartPlaceholder 
+              filename="vyvoj_pruchodnosti_podle_stanice.svg" 
+              altText="Vývoj podílu vozidel, která měření absolvují neúspěšně" 
+            />
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-xl font-semibold text-slate-700">Délka měření</h3>
+            <ChartPlaceholder 
+              filename="delka_prohlidky.svg" 
+              altText="Rozložení délky měření emisí v čase (kvantily)" 
+            />
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-xl font-semibold text-slate-700">Krajní hodnoty: Otáčky</h3>
+            <ChartPlaceholder 
+              filename="mereni_krajni_hodnoty_otacky.svg" 
+              altText="Podíl měření otáček na hranici povoleného intervalu" 
+            />
+          </section>
+          
+          <section className="space-y-4">
+            <h3 className="text-xl font-semibold text-slate-700">Krajní hodnoty: Akcelerace</h3>
+            <ChartPlaceholder 
+              filename="mereni_krajni_hodnoty_akcelerace.svg" 
+              altText="Podíl času akcelerace na hranici intervalu" 
+            />
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-xl font-semibold text-slate-700">Celkové anomálie u měření</h3>
+            <ChartPlaceholder 
+              filename="mereni_anomalie_celkove.svg" 
+              altText="Podíl úspěšných měření s hodnotami mimo povolený rozsah" 
+            />
+          </section>
+        </div>
       </Container>
     </>
   );

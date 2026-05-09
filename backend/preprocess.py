@@ -817,14 +817,14 @@ def parse_to_parquet(source_dir, file_parser, no_threads, verbosity, delete):
         delete_path(source_dir, verbosity)
 
 
-def write_batch(output_dir, batch_data, file_stem, cast_func=None):
+def write_batch(output_dir, batch_data, file_stem, schema, cast_func=None):
     if not batch_data: return
     
     file_name = f"{file_stem}.parquet"
     
     # Převedení slovníků na Polars DataFrame
-    df = pl.DataFrame(batch_data, infer_schema_length=10000)
-    
+    df = pl.DataFrame(batch_data, schema=schema)
+
     if cast_func:
         df = cast_func(df)
         
@@ -874,7 +874,7 @@ def parse_inspections_file(target_dir, xml_file, verbosity, delete):
                 prohlidky_batch.append(prohlidka_record)
         
         # Zapsání souboru na disk
-        write_batch(target_dir, prohlidky_batch, xml_file.stem, cast_func=clean.cast_prohlidka)
+        write_batch(target_dir, prohlidky_batch, xml_file.stem, schema=prohlidky_schema, cast_func=clean.cast_prohlidka)
 
         if verbosity > Verbosity.NORMAL:
             print(f'Zapisuji vyparsovaný parquet soubor ze: "{xml_file.stem}".')
@@ -917,7 +917,7 @@ def parse_measurements_file(target_dir, xml_file, verbosity, delete):
         del tree
         
         # Zapsání souborů na disk
-        write_batch(target_dir, mereni_batch, xml_file.stem, cast_func=clean.cast_mereni)
+        write_batch(target_dir, mereni_batch, xml_file.stem, schema=mereni_schema, cast_func=clean.cast_mereni)
         if verbosity > Verbosity.NORMAL:
             print(f'Zapisuji vyparsované parquet soubory ze: "{xml_file.stem}".')
         elif verbosity > Verbosity.QUIET:
@@ -966,7 +966,7 @@ def parse_stations_file(target_dir, xml_file, verbosity, delete):
         del tree
 
         # Zapsání souboru na disk
-        write_batch(target_dir, stanice_batch, xml_file.stem, cast_func=clean.cast_stanice)
+        write_batch(target_dir, stanice_batch, xml_file.stem, schema=stanice_schema, cast_func=clean.cast_stanice)
 
         if verbosity > Verbosity.NORMAL:
             print(f'Zapisuji stanice z: "{xml_file.stem}".')

@@ -6,7 +6,6 @@ import BreadcrumbsContainer from "@/components/BreadcrumbsContainer";
 import Container from "@/components/Container";
 import InspectionsTable from "./InspectionsTable";
 import DefectPredictionTable from "./DefectPredictionTable";
-import MileageChart from "./MileageChart";
 import VehicleDetailsCard from "./VehicleDetailsCard";
 import SearchBox from "../SearchBox";
 import InspectionsOnFrequentDaysTable from "./InspectionsOnFrequentDaysTable";
@@ -71,7 +70,6 @@ export default function StationDetailPage({
 
           <h2 className="pt-4 text-2xl">Historie a predikce nájezdu</h2>
           <hr className="pb-4"></hr>
-          <MileageChart vehicle={vehicle}></MileageChart>
 
           <h2 className="pt-4 text-2xl">
             Prohlídky v neobvykle frekventovaných dnech
