@@ -4,6 +4,7 @@ __pycache__
 catboost_info
 data
 node_modules
+graphs
 
 nosync
 *old

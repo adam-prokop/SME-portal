@@ -2,7 +2,9 @@ import asyncio
 import os
 from fastapi import FastAPI
 from pydantic import BaseModel
+from generate_graphs import generate_all_graphs
 from preprocess import run_preprocessing
+import sys
 # import pandas as pd
 # from catboost import CatBoostClassifier
 
@@ -36,16 +38,17 @@ async def predict_risk(request: VinRequest):
 async def update_data_and_generate_graphs():
     while True:
         print("Stahuji data z data.gov.cz do /app/data/parquets...")
-        # Run heavy CPU/IO processing in a threadpool so it doesn't block the API
-        await asyncio.to_thread(run_preprocessing)
+        # run_preprocessing()
+        # Spuštění preprocessingu ve zcela izolovaném procesu (neblokuje FastAPI, nezamrzá)
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, "-c", "from preprocess import run_preprocessing; run_preprocessing()"
+        )
+        await process.wait()
         
-        print("Generuji grafy z .parquet souborů...")
-        # df = pd.read_parquet("/app/data/parquets/...")
-        # nakreslis grafy a ulozis
-        # plt.savefig("/app/public/graphs/pruchodnost.svg")
+        print("Generuji grafy z .parquet souborů...", flush=True)
+        generate_all_graphs()
         
-        print("Grafy uloženy. Uspávám na 24 hodin.")
-        # Uspi úlohu na 24 hodin (86400 sekund)
+        print("Grafy uloženy. Uspávám na 24 hodin.", flush=True)
         await asyncio.sleep(86400)
 
 @app.on_event("startup")
