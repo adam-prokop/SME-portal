@@ -4,119 +4,90 @@ import Link from "next/link";
 import useSWR from "swr";
 import BreadcrumbsContainer from "@/components/BreadcrumbsContainer";
 import Container from "@/components/Container";
-import InspectionsTable from "./InspectionsTable";
-import DefectPredictionTable from "./DefectPredictionTable";
-import VehicleDetailsCard from "./VehicleDetailsCard";
 import SearchBox from "../SearchBox";
-import InspectionsOnFrequentDaysTable from "./InspectionsOnFrequentDaysTable";
-import VehicleGeneralCard from "./VehicleGeneralCard";
 import Breadcrumb from "antd/es/breadcrumb";
 import Spin from "antd/es/spin";
+import Card from "antd/es/card";
+import Tag from "antd/es/tag";
 
-export default function StationDetailPage({
+export default function VehiclePredictionPage({
   params: { vehicle },
 }: {
   params: { vehicle: string };
 }) {
-  const { data: vehicleData, isLoading: isVehicleLoading } = useSWR(
-    `/api/vehicles?vin=eq.${vehicle}`,
+  const { data, isLoading } = useSWR(
+    `/api/predict?vin=${vehicle}`,
     async (key) => {
       const res = await fetch(key);
-      const data: Vehicle[] = await res.json();
-      return data[0];
-    }
+      return await res.json();
+    },
+    { revalidateOnFocus: false, revalidateOnReconnect: false }
   );
 
-  if (vehicleData) {
+  if (isLoading) {
     return (
-      <>
-        <BreadcrumbsContainer>
-          <Breadcrumb
-            items={[
-              { title: <Link href="/">SME portál</Link> },
-              { title: <Link href="/vehicles">Vozidla</Link> },
-              { title: vehicleData.vin },
-            ]}
-          ></Breadcrumb>
-        </BreadcrumbsContainer>
-
-        <Container>
-          <h1 className="pb-4 text-3xl">
-            {vehicleData.make ?? "Neznámý výrobce,"}{" "}
-            {vehicleData.model_primary ?? "Neznámý model"}{" "}
-            {vehicleData.model_primary && vehicleData.model_secondary && (
-              <span className="text-xl">{vehicleData.model_secondary}</span>
-            )}
-          </h1>
-
-          <div className="grid grid-cols-1 gap-4 pt-4 lg:grid-cols-2">
-            <VehicleGeneralCard vehicleData={vehicleData}></VehicleGeneralCard>
-            <VehicleDetailsCard vehicleData={vehicleData}></VehicleDetailsCard>
-          </div>
-
-          <h2 className="pt-4 text-2xl">Prohlídky</h2>
-          <hr className="pb-4"></hr>
-          <InspectionsTable vin={vehicle}></InspectionsTable>
-
-          <h1 className="pt-8 text-3xl">Statistiky</h1>
-
-          <h2 className="pt-4 text-2xl">Predikce závad</h2>
-          <hr className="pb-4"></hr>
-          <p className="pb-4">
-            Tabulka zobrazuje pravděpodobnost, že vozidlo na příští prohlídce
-            bude mít v dané kategorii nějakou závadu.
-          </p>
-          <DefectPredictionTable vehicle={vehicle}></DefectPredictionTable>
-
-          <h2 className="pt-4 text-2xl">Historie a predikce nájezdu</h2>
-          <hr className="pb-4"></hr>
-
-          <h2 className="pt-4 text-2xl">
-            Prohlídky v neobvykle frekventovaných dnech
-          </h2>
-          <hr className="pb-4"></hr>
-          <div className="grid grid-cols-1 gap-4 pt-4 lg:grid-cols-2">
-            <InspectionsOnFrequentDaysTable
-              vin={vehicle}
-            ></InspectionsOnFrequentDaysTable>
-            <div className="space-y-4">
-              <p>
-                Tabulka obsahuje výčet prohlídek, které byly prováděny v den,
-                kdy na dané stanici proběhlo výjimečně velké množství prohlídek
-                vůči průměru. To může indikovat zvýšené nároky na personál a
-                potenciální vliv na průběh prohlídky.
-              </p>
-              <p>
-                Za výjimečně frekventovaný den se považuje takový, že počet
-                provedených prohlídek je o dvě standardní odchylky vyšší než
-                průměr daného měsíce. Tato hranice byla zvolena tak, aby bylo
-                označeno pouze malé procento dní a tempo práce muselo tedy na
-                stanici být nadstandardní. Do vzorku, z nichž je průměr a
-                odchylka získána, se započítávají stejné měsíce ze všech let, za
-                které jsou data o prohlídkách k dispozici. To umožňuje podchytit
-                sezónní charakter vytíženosti stanic, kdy např. v lednu je
-                obecně vytíženost menší než v květnu a podobně.
-              </p>
-            </div>
-          </div>
-        </Container>
-      </>
-    );
-  } else if (isVehicleLoading) {
-    return (
-      <div className="flex items-center justify-center grow">
-        <Spin></Spin>
+      <div className="flex flex-col items-center justify-center grow space-y-4 pt-12">
+        <Spin size="large" />
+        <p className="text-gray-500">Provádím výpočet pomocí modelu strojového učení, může to chvíli trvat...</p>
       </div>
     );
-  } else {
+  }
+  
+  if (!data || data.error) {
     return (
-      <div className="flex flex-col items-center justify-center space-y-8 grow">
-        <p>Vozidlo nebylo nalezeno</p>
-        <SearchBox></SearchBox>
+      <div className="flex flex-col items-center justify-center space-y-8 grow pt-12">
+        <p className="text-red-500">{data?.error || "Vozidlo nebylo nalezeno nebo nastala neočekávaná chyba."}</p>
+        <SearchBox initialValue={vehicle}></SearchBox>
         <Link href={"/vehicles"} className="text-primary">
           Zpět na přehled vozidel
         </Link>
       </div>
     );
   }
+
+  const riskGroup = data.Skupina;
+  let color = "green";
+  if (riskGroup >= 5) color = "red";
+  else if (riskGroup >= 3) color = "orange";
+
+  return (
+    <>
+      <BreadcrumbsContainer>
+        <Breadcrumb
+          items={[
+            { title: <Link href="/">SME portál</Link> },
+            { title: <Link href="/vehicles">Vozidla</Link> },
+            { title: data.vin },
+          ]}
+        ></Breadcrumb>
+      </BreadcrumbsContainer>
+
+      <Container>
+        <h1 className="pb-2 text-3xl">
+          {data.make} {data.model}
+        </h1>
+        
+        <p className="pb-8 text-gray-600 leading-relaxed">
+          První registrace: <span className="font-semibold">{data.first_registration ? new Date(data.first_registration).toLocaleDateString("cs-CZ") : "Neznámá"}</span> <br/>
+          Poslední úspěšné měření: <span className="font-semibold">{data.last_inspection ? new Date(data.last_inspection).toLocaleDateString("cs-CZ") : "Neznámá"}</span> <br/>
+          VIN: <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-sm">{data.vin}</span>
+        </p>
+
+        <Card title="Výsledek predikce rizikovosti" className="max-w-2xl mb-8 border-gray-200 shadow-sm">
+          <div className="flex flex-col space-y-4">
+            <div className="flex justify-between items-center border-b pb-4">
+              <span className="text-lg">Kategorie rizikovosti (1-4):</span>
+              <Tag color={color} className="text-2xl px-4 py-1 m-0">{data.Skupina}</Tag>
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-lg">Průměrná neúspěšnost této kategorie:</span>
+              <span className="text-xl font-semibold">{(data.Prumerna_Neuspesnost_Skupiny * 100).toFixed(1)} %</span>
+            </div>
+          </div>
+        </Card>
+
+      </Container>
+    </>
+  );
 }

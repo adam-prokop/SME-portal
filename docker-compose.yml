@@ -9,18 +9,28 @@ services:
       - frontend
     ports:
       - "${WEB_PORT:?Web server port}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
 
   backend:
     build:
       context: ./backend
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     restart: unless-stopped
     volumes:
-      - ./backend:/app
       - ./data:/app/data
       - ./web/app/public/graphs:/app/public/graphs
     networks:
       - frontend
+    healthcheck:
+      # Použití vestavěného pythonu pro zjištění stavu, curl ve slim image nebývá dostupný
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      # Kontrola každých 15 vteřin
+      interval: 15s
+      timeout: 10s
+      retries: 1000
+      # Start_period dává kontejneru 5 minut milosti k dokončení první velké extrakce
+      start_period: 300s
 
 networks:
   frontend:
