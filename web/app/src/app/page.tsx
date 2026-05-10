@@ -67,7 +67,7 @@ export default function Home() {
 
               <h2 className="self-start pt-6 text-3xl">Vývoj hraničních a mezních hodnot</h2>
               <p className="pt-4 text-slate-600">
-                Přehled měření, u kterých se zaznamenané hodnoty nacházejí na okraji nebo mimo předepsané tolerance, avšak celkový výsledek zkoušky je hodnocen jako vyhovující. U části vozidel se hodnoty mohou na hranici intervalu vyskytovat přirozeně; detaily tohoto rozložení lze vidět <Link href="#rozlozeni-parametru" className="text-blue-600 hover:underline">zde</Link> v grafech na konci stránky.
+                Přehled měření, u kterých se zaznamenané hodnoty nacházejí na okraji nebo mimo předepsané tolerance, avšak celkový výsledek zkoušky je hodnocen jako vyhovující. U části vozidel se hodnoty mohou na hranici intervalu vyskytovat přirozeně. Detaily tohoto rozložení lze vidět <Link href="#rozlozeni-parametru" className="text-blue-600 hover:underline">zde</Link> v grafech na konci stránky.
               </p>
               <div className="w-full py-4 mb-8">
                 <section className="space-y-4 mb-8">

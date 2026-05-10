@@ -22,13 +22,13 @@ export default function Footer() {
           >
             OpenDataLab
           </a>{" "}
-          2024,{" "}
+          2026,{" "}
           <a
-            href="https://www.linkedin.com/in/daniel-brotz/"
+            href="https://www.linkedin.com/in/adam-prokop-810b48237/"
             target="_blank"
             className="underline underline-offset-2 decoration-dotted decoration-1"
           >
-            Daniel Brotz
+            Adam Prokop
           </a>
           . Portál vznikl jako{" "}
           {/* <a
@@ -36,9 +36,9 @@ export default function Footer() {
             target="_blank"
             className="underline underline-offset-2 decoration-dotted decoration-1"
           >
-            diplomová práce
+            bakalářská práce
           </a>{" "} */}
-          diplomová práce na{" "}
+          bakalářská práce na{" "}
           <a
             href="https://fit.cvut.cz/"
             target="_blank"
@@ -77,7 +77,7 @@ export default function Footer() {
             alt={"Logo Profinit"}
           ></Image>
         </a>
-        <a href="https://github.com/opendatalabcz/STK-portal" target="_blank">
+        <a href="https://github.com/opendatalabcz/SME-portal" target="_blank">
           <GithubOutlined
             className="mx-4 text-4xl"
             style={{ color: "black" }}

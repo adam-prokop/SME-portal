@@ -20,16 +20,15 @@ services:
     volumes:
       - ./data:/app/data
       - ./web/app/public/graphs:/app/public/graphs
+    env_file:
+      - .env
     networks:
       - frontend
     healthcheck:
-      # Použití vestavěného pythonu pro zjištění stavu, curl ve slim image nebývá dostupný
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      # Kontrola každých 15 vteřin
-      interval: 15s
-      timeout: 10s
-      retries: 1000
-      # Start_period dává kontejneru 5 minut milosti k dokončení první velké extrakce
+      interval: 60s
+      timeout: 60s
+      retries: 100
       start_period: 300s
 
 networks:

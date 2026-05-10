@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 from utils import Verbosity
 
 # Kořenové adresáře
@@ -19,10 +20,11 @@ DATASET_STATIONS = 'https://data.gov.cz/zdroj/datové-sady/66003008/05660b2a9412
 
 # Parametry běhu
 SPARQL_ENDPOINT = 'https://data.gov.cz/sparql'
-START_DATE = '01-01-2019'
-END_DATE = None
-NO_DOWNLOAD_THREADS = 30
-MAX_DOWNLOAD_ATTEMPTS = 10
-NO_EXTRACT_THREADS = 15
-NO_PARSE_PROCESSES = 4
+START_DATE = os.getenv('START_DATE', '01-01-2019')
+END_DATE = os.getenv('END_DATE', None)
+NO_DOWNLOAD_THREADS = int(os.getenv('NO_DOWNLOAD_THREADS', 30))
+MAX_DOWNLOAD_ATTEMPTS = int(os.getenv('MAX_DOWNLOAD_ATTEMPTS', 10))
+NO_EXTRACT_THREADS = int(os.getenv('NO_EXTRACT_THREADS', 15))
+NO_PARSE_PROCESSES = int(os.getenv('NO_PARSE_PROCESSES', 4))
+UPDATE_INTERVAL_DAYS = int(os.getenv('UPDATE_INTERVAL_DAYS', 1))
 VERBOSITY = Verbosity.NORMAL

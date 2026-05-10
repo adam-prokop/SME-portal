@@ -1,49 +1,61 @@
-# STK Portál
+# SME Portál
 
-https://stk.opendatalab.cz
+Analytický a informační web postavený nad otevřenými daty z Informačního systému technických prohlídek Ministerstva dopravy ČR (ISTP MDČR). Zaměřuje se na oblast Stanic měření emisí (SME).
 
-Informační portál o vozidlech v ČR a jejich prohlídkách na STK.
+Portál poskytuje interaktivní grafy agregující průchodnosti a emisní měření v čase, a zároveň obsahuje zabudovaný model strojového učení (CatBoost), který predikuje pravděpodobnost selhání vozidla při další kontrole.
 
-STK portál nabízí informace získané na základě dat Ministerstva dopravy ČR, která lze vytěžit pomocí statistických metod a strojového učení.
-Dva hlavní datové zdroje, tj. seznam kontrol na STK a registr vozidel, jsou propojitelná na základě VIN kódu, který známe pro každé vozidlo v registru i každou proběhlou kontrolu.
-Díky tomu je možné zobrazit historii vozů v ČR a predikovat jejich chování do budoucnosti.
+## Prerekvizity
 
-Projekt se skládá z datové pipeline, která provádí příjem dat a jejich následnou analýzu.
-Data jsou uložena do databáze PostgreSQL a API server PostgREST je následně zpřístupňuje frontendu.
-Ten je tvořený jako webová aplikace v Next.js.
+Pro běh projektu je vyžadováno nainstalované prostředí Docker:
+- [Docker](https://docs.docker.com/engine/install/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
 
-## Datová pipeline
+## Příprava před spuštěním
 
-### Příprava
+### 1. Model a předpočítaná data
+Aby správně fungovala predikce (stránka Vozidla), je nutné do projektu vložit natrénovaný ML model a jeho metadata. Tyto soubory nejsou součástí repozitáře z důvodu jejich velikosti a procesu trénování.
 
-V `.env` souboru nastavíme cesty k potřebným zdrojovým souborům, v příkladovém `.env.example` se jedná o položky v sekci "Pipeline configuration".
+Vložte následující 4 soubory do složky `data/precomputed/` v kořeni projektu:
+- `model.bin` (Zkompilovaný CatBoost model)
+- `features.json` (Seznam příznaků)
+- `cat_features.json` (Seznam kategoriálních příznaků)
+- `optimalizovane_prahy.csv` (Rozdělení do kategorií rizikovosti)
 
-Do adresáře definovaného hodnotou `PRECOMPUTED_DATA` vložíme parametry modelů pro predikci závad a nájezdu, podle `.env.example` se jedná o cestu `./data/precomputed`.
-Parametry lze získat natrénováním modelů v Jupyter notebooku v příslušném adresáři pod `data/analysis/vehicles`.
-
-### Doplnění dat
-
-Zdrojové soubory umístíme na cesty definované pod "Pipeline configuration" v `.env`.
-
-V případě datové sady prohlídek na STK pod cestu nastavenou v `.env` vkládáme soubory za jednotlivé měsíce do podadresářů pojmenovaných podle roku, každý soubor má tedy cestu ve tvaru `YYYY/Data_Prohlidek_YYYY_MM.xml`, jméno souboru je nutné také dodržet v tomto formátu.
-
-### Spuštění
-
-V `docker-compose.yml` nastavíme zpracování požadovaných zdrojových dat.
-Pokud jsme např. pouze doplnili data prohlídek, zakomentujeme v oddílu `services: data: environment` řádky začínající `DEFECTS_SOURCE`, `STATIONS_SOURCE` a `VEHICLES_SOURCE`, aby se tyto ostatní datové sady zbytečně neimportovaly znovu.
-
-Pipeline pak spustíme jednorázově pomocí
-
-```
-docker compose up data
+*Struktura po vložení by měla vypadat takto:*
+```text
+SME-portal/
+└── data/
+    └── precomputed/
+        ├── cat_features.json
+        ├── features.json
+        ├── model.bin
+        └── optimalizovane_prahy.csv
 ```
 
-Po dokončení importu a přepočítání veškerých analytických výstupů se kontejner zastaví.
+### 2. Konfigurace prostředí
+Před spuštěním kontejnerů si vytvořte konfigurační soubor `.env`. K dispozici je vzor.
 
-***
-<img src="https://fit.cvut.cz/static/images/fit-cvut-logo-cs.svg" alt="logo FIT ČVUT" height="200">
+```bash
+cp .env.example .env
+```
 
-Tento software vznikl za podpory **Fakulty informačních technologií ČVUT v Praze**.
-Více informací naleznete na [fit.cvut.cz](https://fit.cvut.cz).
-Otevřený repozitář naleznete na []().
+V souboru `.env` si můžete upravit zejména port, na kterém portál poběží, a počet vláken pro prvotní stahování a parsování velkých datasetů z NKOD. V souboru .env si můžete upravit zejména port, na kterém portál poběží, počet vláken pro prvotní stahování a parsování velkých datasetů z NKOD, a také interval automatické aktualizace (UPDATE_INTERVAL_DAYS).
 
+## Spuštění
+
+Projekt spustíte pomocí Docker Compose.
+
+```bash
+docker-compose up --build -d
+```
+
+Webové rozhraní bude dostupné na adrese http://localhost:3000 (nebo na portu, který jste určili v `.env`).
+
+### Jak probíhá start?
+1. Nastartuje webový kontejner a backendový (FastAPI) kontejner.
+2. Backendový kontejner si nejprve stáhne potřebná otevřená data a seznam stanic přes SPARQL.
+3. Datové XML sady se paralerně rozparsují do formátu Parquet a vygenerují se SVG grafy.
+4. Následně se načte ML model a sestaví se In-Memory index VIN kódů pro bleskové predikce.
+5. Během tohoto procesu (který může trvat i desítky minut v závislosti na hardwaru) vrací backend na endpointu `/health` stav `503`, takže web zatím informuje, že se data připravují.
+
+Tento proces se poté automaticky opakuje podle nastaveného intervalu, čímž jsou data na webu vždy aktuální.

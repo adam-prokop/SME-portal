@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from preprocess import run_preprocessing
 from predict import infer_vin, init_model, build_vin_index
 import sys
+import config
 
 is_ready = False
 
@@ -62,9 +63,9 @@ async def update_data_and_generate_graphs():
         await asyncio.to_thread(build_vin_index)
         print("Aktualizace indexu dokončena.", flush=True)
         
-        print("Grafy uloženy. Uspávám na 24 hodin.", flush=True)
+        print(f"Grafy uloženy. Uspávám na {config.UPDATE_INTERVAL_DAYS} dní.", flush=True)
         is_ready = True
-        await asyncio.sleep(86400)
+        await asyncio.sleep(config.UPDATE_INTERVAL_DAYS * 86400)
 
 @app.on_event("startup")
 async def startup_event():

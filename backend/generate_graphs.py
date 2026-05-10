@@ -238,6 +238,6 @@ def generate_all_graphs():
                     y_max = max_y_per_metric.get(col_norm, 0)
                     y_max = y_max * 1.05 if y_max > 0 else None
                     
-                    distribution_density_plot(df_plot, col_norm, title, 'Normovaná hodnota', 100, (0, 1.00001), y_max=y_max, decimals=2, save_path=str(graphs_dir / f"rozdeleni_{col_norm}_{y}_{mo:02d}.svg"))
+                    distribution_density_plot(df_plot, col_norm, title, 'Normovaná hodnota', 100, (0, 1.00001), y_max=y_max, decimals=0, save_path=str(graphs_dir / f"rozdeleni_{col_norm}_{y}_{mo:02d}.svg"))
 
     print("Grafy byly úspěšně vygenerovány a uloženy.")
