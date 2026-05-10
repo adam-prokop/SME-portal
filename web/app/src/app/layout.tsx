@@ -9,9 +9,9 @@ const ibmPlexSans = IBM_Plex_Sans({
 });
 
 export const metadata = {
-  title: "STK Portál",
+  title: "SME Portál",
   description:
-    "Vyhledávání kontrol vozidel na STK, informace o českém vozovém parku a srovnání vozidel.",
+    "Monitor emisních kontrol na SME. Model predikce úspěšnosti emisní kontroly.",
 };
 
 export default function RootLayout({

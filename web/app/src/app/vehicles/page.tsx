@@ -23,7 +23,7 @@ export default function VehiclesPage() {
 
       <Container>
         <h1 className="pb-4 text-3xl">Predikce rizikovosti vozidla</h1>
-        <p className="pb-8 text-gray-600">Zadejte VIN kód vozidla (17 znaků) pro zjištění jeho rizikové třídy podle našeho modelu.</p>
+        <p className="pb-8 text-gray-600">Zadejte VIN kód vozidla (17 znaků) pro zjištění jeho rizikové třídy podle modelu stojového učení.</p>
 
         <SearchBox></SearchBox>
       </Container>

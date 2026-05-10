@@ -27,7 +27,7 @@ export default function DistributionSliderChart() {
   const fetchMonths = () => {
     setIsLoading(true);
     // Přidáno ?v=Date.now() pro ochranu proti cachování chyby 404 prohlížečem
-    fetch('/graphs/available_months.json?v=' + Date.now())
+    fetch('/api/graphs_json?v=' + Date.now())
       .then(res => {
         if (!res.ok) throw new Error("File not found");
         return res.json();
@@ -49,6 +49,23 @@ export default function DistributionSliderChart() {
   useEffect(() => {
     fetchMonths();
   }, []);
+
+  // Chytré přednačítání (preloading) obrázků pouze pro aktuálně zvolenou metriku
+  useEffect(() => {
+    if (months.length === 0) return;
+    
+    const preloadImages = () => {
+      months.forEach((monthStr) => {
+        const [y, m] = monthStr.split('-');
+        const img = new Image();
+        img.src = `/api/graphs_svg?file=rozdeleni_${selectedMetric}_${y}_${m}.svg`;
+      });
+    };
+
+    // Spustíme přednačítání s mírným zpožděním, abychom neblokovali prvotní načtení stránky
+    const timeoutId = setTimeout(preloadImages, 500);
+    return () => clearTimeout(timeoutId);
+  }, [months, selectedMetric]);
 
   if (isLoading) {
     return (

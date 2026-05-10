@@ -1,8 +1,8 @@
 import asyncio
 import os
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from generate_graphs import generate_all_graphs
 from preprocess import run_preprocessing
 import sys
 # import pandas as pd
@@ -32,6 +32,22 @@ async def predict_risk(request: VinRequest):
     # Zde zatím natvrdo vracíme 3 pro demonstraci
     return {"vin": vin, "risk_class": 3}
 
+@app.get("/graphs_json")
+async def get_graphs_json():
+    file_path = "/app/public/graphs/available_months.json"
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return []
+
+@app.get("/graphs_svg")
+async def get_graphs_svg(file: str):
+    if ".." in file or "/" in file:
+        return {"error": "Neplatný název souboru"}
+    file_path = f"/app/public/graphs/{file}"
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return {"error": "Soubor nebyl nalezen"}
+
 # ---------------------------------------------------------
 # 2. PERIODICKÉ STAHOVÁNÍ DAT A GENEROVÁNÍ GRAFŮ
 # ---------------------------------------------------------
@@ -46,7 +62,11 @@ async def update_data_and_generate_graphs():
         await process.wait()
         
         print("Generuji grafy z .parquet souborů...", flush=True)
-        generate_all_graphs()
+        # Spuštění generování grafů v izolovaném procesu, aby nedošlo k zamrznutí FastAPI
+        process_graphs = await asyncio.create_subprocess_exec(
+            sys.executable, "-c", "from generate_graphs import generate_all_graphs; generate_all_graphs()"
+        )
+        await process_graphs.wait()
         
         print("Grafy uloženy. Uspávám na 24 hodin.", flush=True)
         await asyncio.sleep(86400)

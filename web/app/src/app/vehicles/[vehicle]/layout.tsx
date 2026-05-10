@@ -6,7 +6,7 @@ export async function generateMetadata({
   params: { vehicle: string };
 }): Promise<Metadata> {
   return {
-    title: params.vehicle + " - STK Portál",
+    title: params.vehicle + " - SME Portál",
   };
 }
 

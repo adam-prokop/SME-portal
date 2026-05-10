@@ -33,7 +33,7 @@ export default function StationDetailPage({
         <BreadcrumbsContainer>
           <Breadcrumb
             items={[
-              { title: <Link href="/">STK portál</Link> },
+              { title: <Link href="/">SME portál</Link> },
               { title: <Link href="/vehicles">Vozidla</Link> },
               { title: vehicleData.vin },
             ]}

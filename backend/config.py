@@ -19,7 +19,7 @@ DATASET_STATIONS = 'https://data.gov.cz/zdroj/datové-sady/66003008/05660b2a9412
 
 # Parametry běhu
 SPARQL_ENDPOINT = 'https://data.gov.cz/sparql'
-START_DATE = '01-01-2026'
+START_DATE = '01-01-2019'
 END_DATE = None
 NO_DOWNLOAD_THREADS = 30
 MAX_DOWNLOAD_ATTEMPTS = 10

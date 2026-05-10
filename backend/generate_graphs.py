@@ -39,49 +39,14 @@ def generate_all_graphs():
         ~((pl.col("DatumProhlidky").dt.year() == global_max_year) & (pl.col("DatumProhlidky").dt.month() == global_max_month))
     )
 
-    # --- 1. Vývoj průchodnosti podle stanice ---
-    df_stations = df_selected.group_by("StaniceCislo").agg(
-        celkem=pl.len(),
-        nevyhovuje=pl.col("Vysledek_Vyhovuje").is_null().sum()
-    ).with_columns(
-        neuspesnost=pl.col("nevyhovuje") / pl.col("celkem")
-    )
-    
-    limit_10 = df_selected.height * 0.10
-    limit_50 = df_selected.height * 0.50
-
-    def get_stations(limit, desc_neuspesnost):
-        return (
-            df_stations.sort(["neuspesnost", "celkem"], descending=[desc_neuspesnost, True])
-            .with_columns(cum_celkem=pl.col("celkem").cum_sum())
-            .filter(pl.col("cum_celkem") <= limit)
-            .get_column("StaniceCislo")
-            .to_list()
-        )
-
-    worst_10_stations = get_stations(limit_10, desc_neuspesnost=True)
-    best_10_stations = get_stations(limit_10, desc_neuspesnost=False)
-    worst_50_stations = get_stations(limit_50, desc_neuspesnost=True)
-    best_50_stations = get_stations(limit_50, desc_neuspesnost=False)
-
-    def create_expr(stations_list, alias_name):
-        return (
-            pl.col("Vysledek_Vyhovuje").filter(pl.col("StaniceCislo").is_in(stations_list)).is_null().sum() /
-            pl.col("StaniceCislo").filter(pl.col("StaniceCislo").is_in(stations_list)).len()
-        ).alias(alias_name)
-
-    exprs = [
-        create_expr(worst_10_stations, "10 % nejpřísnějších stanic (dle objemu)"),
-        create_expr(worst_50_stations, "50 % nejpřísnějších stanic (dle objemu)"),
-        create_expr(best_50_stations, "50 % nejmírnějších stanic (dle objemu)"),
-        create_expr(best_10_stations, "10 % nejmírnějších stanic (dle objemu)"),
-    ]
+    # --- 1. Vývoj celkové průchodnosti ---
+    expr_overall = (pl.col("Vysledek_Vyhovuje").is_null().sum() / pl.len()).alias("Celkový podíl nevyhovujících vozidel")
 
     time_series_monthly_expr(
-        df_selected, 'DatumProhlidky', exprs, 
-        'Vývoj podílu vozidel, která měření absolvují neúspěšně, podle přísnosti stanice', 
+        df_selected, 'DatumProhlidky', [expr_overall], 
+        'Vývoj podílu vozidel, která měření absolvují neúspěšně', 
         'Podíl z měsíčních prohlídek',
-        save_path=str(graphs_dir / 'vyvoj_pruchodnosti_podle_stanice.svg'), 
+        save_path=str(graphs_dir / 'vyvoj_pruchodnosti.svg'), 
         decimals=2
     )
     
@@ -114,13 +79,11 @@ def generate_all_graphs():
     del df_selected
 
     # --- 3. Filtrování a normalizace (Anomálie, Otáčky atd.) ---
-    uzsi_prohlidky = set(lf_prohlidky.select([
-        'CisloProtokolu', 'Vozidlo_Kategorie', 'Emise_ZakladniPalivo', 'Emise_AlternativniPalivo'
-    ]).filter(
-        pl.col('Vozidlo_Kategorie') == 'M1', 
-        pl.col('Emise_ZakladniPalivo').is_in(['Benzín', 'Nafta']), 
+    lf_uzsi_prohlidky = lf_prohlidky.filter(
+        (pl.col('Vozidlo_Kategorie') == 'M1') & 
+        pl.col('Emise_ZakladniPalivo').is_in(['Benzín', 'Nafta']) & 
         pl.col('Emise_AlternativniPalivo').is_null()
-    ).select('CisloProtokolu').collect()['CisloProtokolu'].to_list())
+    ).select('CisloProtokolu')
 
     required_benzin = ["Benzin_OtackyVolnobezne_CO_Hodnota", "Benzin_OtackyVolnobezne_CO_Max_Hodnota", "Benzin_OtackyVolnobezne_N_Hodnota", "Benzin_OtackyVolnobezne_N_Min_Hodnota", "Benzin_OtackyVolnobezne_N_Max_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Min_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Max_Hodnota", "Benzin_OtackyZvysene_CO_Hodnota", "Benzin_OtackyZvysene_CO_Max_Hodnota", "Benzin_OtackyZvysene_N_Hodnota", "Benzin_OtackyZvysene_N_Min_Hodnota", "Benzin_OtackyZvysene_N_Max_Hodnota"]
     required_nafta = ["Nafta_MereniPrumer_CasAkcelerace_Hodnota", "Nafta_MereniPrumer_Kourivost_Hodnota", "Nafta_MereniPrumer_OtackyVolnobezne_Hodnota", "Nafta_MereniPrumer_OtackyPrebehove_Hodnota", "Nafta_MereniVznetLimit_CasAkcelerace_Max_Hodnota", "Nafta_MereniVznetLimit_Kourivost_Max_Hodnota", "Nafta_MereniVznetLimit_OtackyVolnobezne_Max_Hodnota", "Nafta_MereniVznetLimit_OtackyPrebehove_Max_Hodnota", "Nafta_MereniVznetLimit_OtackyVolnobezne_Min_Hodnota", "Nafta_MereniVznetLimit_OtackyPrebehove_Min_Hodnota"]
@@ -131,11 +94,15 @@ def generate_all_graphs():
     limits_bounds_nafta = [('Nafta_MereniVznetLimit_CasAkcelerace_Max_Hodnota', 0.1, 10.0), ('Nafta_MereniVznetLimit_Kourivost_Max_Hodnota', 0.01, 3.0), ('Nafta_MereniVznetLimit_OtackyVolnobezne_Min_Hodnota', 300, 3000), ('Nafta_MereniVznetLimit_OtackyVolnobezne_Max_Hodnota', 300, 3000), ('Nafta_MereniVznetLimit_OtackyPrebehove_Min_Hodnota', 1000, 10000), ('Nafta_MereniVznetLimit_OtackyPrebehove_Max_Hodnota', 1000, 10000)]
     check_limits_integrity = [("Benzin_OtackyVolnobezne_N_Min_Hodnota", "Benzin_OtackyVolnobezne_N_Max_Hodnota"), ("Benzin_OtackyZvysene_LAMBDA_Min_Hodnota", "Benzin_OtackyZvysene_LAMBDA_Max_Hodnota"), ("Benzin_OtackyZvysene_N_Min_Hodnota", "Benzin_OtackyZvysene_N_Max_Hodnota"), ("Nafta_MereniVznetLimit_OtackyVolnobezne_Min_Hodnota", "Nafta_MereniVznetLimit_OtackyVolnobezne_Max_Hodnota"), ("Nafta_MereniVznetLimit_OtackyPrebehove_Min_Hodnota", "Nafta_MereniVznetLimit_OtackyPrebehove_Max_Hodnota")]
 
-    df_valid = lf_mereni.select(['CisloProtokolu', 'EmisniSystem', 'Vysledek_Vyhovuje', 'DatumProhlidky'] + required_benzin + required_nafta).filter(
-        pl.col('EmisniSystem').cast(pl.String).str.contains('Rizeny'),
-        pl.col('CisloProtokolu').is_in(uzsi_prohlidky), 
+    lf_mereni_base = lf_mereni.select(
+        ['CisloProtokolu', 'EmisniSystem', 'Vysledek_Vyhovuje', 'DatumProhlidky'] + required_benzin + required_nafta
+    ).filter(
+        pl.col('EmisniSystem').is_in(['Rizeny', 'Rizeny_Obd']),
+        pl.col('Vysledek_Vyhovuje').is_not_null()
+    )
+
+    df_valid = lf_mereni_base.join(lf_uzsi_prohlidky, on='CisloProtokolu', how='inner').filter(
         pl.any_horizontal(~(cs.numeric() < 0)),
-        pl.col("Vysledek_Vyhovuje").is_not_null(),
         benzin_mask | nafta_mask,
         *[(pl.col(col).is_between(low, high) | nafta_mask) for col, low, high in limits_bounds_benzin],
         *[(pl.col(col).is_between(low, high) | benzin_mask) for col, low, high in limits_bounds_nafta],

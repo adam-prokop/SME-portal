@@ -7,8 +7,6 @@ services:
     restart: unless-stopped
     networks:
       - frontend
-    volumes:
-      - ./web/app/public/graphs:/app/public/graphs:ro
     ports:
       - "${WEB_PORT:?Web server port}:3000"
 

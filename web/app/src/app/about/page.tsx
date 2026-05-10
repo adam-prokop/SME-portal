@@ -9,7 +9,7 @@ export default async function AboutPage() {
       <BreadcrumbsContainer>
         <Breadcrumb
           items={[
-            { title: <Link href="/">STK portál</Link> },
+            { title: <Link href="/">SME portál</Link> },
             { title: "O projektu" },
           ]}
         ></Breadcrumb>
