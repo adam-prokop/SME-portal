@@ -45,6 +45,15 @@ export default async function AboutPage() {
         <p className="pb-4">
           Součástí portálu je také model strojového učení, jehož cílem je odhadnout míru rizika neúspěchu konkrétního vozidla na nadcházející technické kontrole. Tento model pro své výpočty a predikci cíleně využívá <strong>veškeré evidované informace o vozidle získané během jeho poslední úspěšné technické prohlídky a měření emisí</strong>. Propojením identifikačních znaků a naměřených fyzikálních veličin tak dokážeme odhadnout rizikovost příští kontroly emisí.
         </p>
+        <p className="pb-4">
+          Vozidla jsou modelem rozdělena do 4 kategorií podle odhadovaného rizika:
+        </p>
+        <ul className="pb-4 pl-6 list-disc space-y-2">
+          <li><strong>Kategorie 1 (Nejnižší riziko):</strong> Neúspěšnost cca 0,5 % (tvoří zhruba 42 % vozidel)</li>
+          <li><strong>Kategorie 2:</strong> Neúspěšnost cca 2,0 % (tvoří zhruba 30 % vozidel)</li>
+          <li><strong>Kategorie 3:</strong> Neúspěšnost cca 5,0 % (tvoří zhruba 21 % vozidel)</li>
+          <li><strong>Kategorie 4 (Nejvyšší riziko):</strong> Neúspěšnost cca 11,9 % (tvoří zhruba 7 % vozidel)</li>
+        </ul>
 
         <h2 className="self-start pt-6 pb-4 text-2xl font-semibold">Metodika měření emisí</h2>
         <p className="pb-4">

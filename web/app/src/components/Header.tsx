@@ -87,14 +87,22 @@ export default function Header() {
           minWidth: 0,
         }}
         mode="horizontal"
-        defaultSelectedKeys={[firstLevelPath]}
+        selectedKeys={[firstLevelPath === "vehicles" || firstLevelPath === "" ? "" : firstLevelPath]}
         onClick={(e) => {
-          router.push(`/${e.key}`);
+          if (e.key === "") {
+            router.push("/");
+          } else {
+            router.push(`/${e.key}`);
+          }
         }}
         items={[
           {
-            key: "vehicles",
+            key: "",
             label: "Rizikovost vozidla",
+          },
+          {
+            key: "statistics",
+            label: "Statistiky",
           },
           {
             key: "about",

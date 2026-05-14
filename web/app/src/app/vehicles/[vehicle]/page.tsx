@@ -38,8 +38,8 @@ export default function VehiclePredictionPage({
       <div className="flex flex-col items-center justify-center space-y-8 grow pt-12">
         <p className="text-red-500">{data?.error || "Vozidlo nebylo nalezeno nebo nastala neočekávaná chyba."}</p>
         <SearchBox initialValue={vehicle}></SearchBox>
-        <Link href={"/vehicles"} className="text-primary">
-          Zpět na přehled vozidel
+        <Link href={"/"} className="text-primary">
+          Zpět na vyhledávání vozidla
         </Link>
       </div>
     );
@@ -56,7 +56,6 @@ export default function VehiclePredictionPage({
         <Breadcrumb
           items={[
             { title: <Link href="/">SME portál</Link> },
-            { title: <Link href="/vehicles">Vozidla</Link> },
             { title: data.vin },
           ]}
         ></Breadcrumb>
